@@ -1,0 +1,20 @@
+[project]
+name = "blockchain-streaming"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "confluent-kafka>=2.13.0",
+    "flask>=3.1.2",
+    "websockets>=16.0",
+    "pyspark>=3.5.0",
+    "psycopg2-binary>=2.9.9",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["streams", "kafka", "spark", "postgres"]

@@ -1,0 +1,76 @@
+services:
+  kafka:
+    image: confluentinc/cp-kafka:7.8.3
+    container_name: kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_KRAFT_MODE: 'true'
+      CLUSTER_ID: 'blockchain_streaming'
+      KAFKA_NODE_ID: 1 # id of node being deployed
+      KAFKA_PROCESS_ROLES: controller,broker # in KRaft, nodes can be both
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093 # can list more as backup in case one fails, i.e: 1@kafka:9093,2@kafka:9093, etc
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1 # only 1 copy of metadata that keeps track of which consumer read which events, should ideally have multiple
+      KAFKA_LISTENERS: INTERNAL://:29092,EXTERNAL://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LOG_DIRECTORY: /tmp/kraft-combined-logs # tells kafka where to store all data, metadata, logs, etc
+    volumes:
+      - kafka_data:/var/lib/kafka/data # where kafka will store data inside the container
+
+  ngrok: # setting up ngrok if creating webapp to receive webhooks from services like alchemy
+    image: ngrok/ngrok:latest
+    container_name: ngrok
+    ports:
+      - "4040:4040"
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
+    command: http host.docker.internal:5000
+
+  postgres: # store streamed data into postgres
+    image: postgres:16
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: user_1
+      POSTGRES_PASSWORD: user_1
+      POSTGRES_DB: blockchain_data
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init-scripts:/docker-entrypoint-initdb.d
+    healthcheck: # check to see if postgres instance was set up
+      test: ["CMD-SHELL", "pg_isready -U user_1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  spark: # single spark container for local development
+    image: apache/spark:3.5.0-python3
+    container_name: spark
+    user: root
+    ports:
+      - "4041:4040" # Spark UI (4041 to avoid conflict with ngrok)
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: blockchain_data
+      POSTGRES_USER: user_1
+      POSTGRES_PASSWORD: user_1
+    volumes:
+      - ./spark:/opt/spark-apps
+      - ./checkpoints:/opt/checkpoints
+      - spark_ivy_cache:/root/.ivy2
+    working_dir: /tmp
+    command: sleep infinity # keep container running, submit jobs manually
+    depends_on:
+      - kafka
+      - postgres
+
+volumes:
+  kafka_data:
+  postgres_data:
+  spark_ivy_cache:
