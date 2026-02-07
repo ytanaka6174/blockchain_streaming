@@ -1,0 +1,12 @@
+dbt_blockchain:
+  outputs:
+    dev:
+      dbname: blockchain_data
+      host: localhost
+      pass: user_1
+      port: 5432
+      schema: raw
+      threads: 4
+      type: postgres
+      user: user_1
+  target: dev
