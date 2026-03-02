@@ -123,7 +123,7 @@ def write_to_postgres(batch_df, batch_id: int) -> None:
     (
         batch_df.write.jdbc(
             url=JDBC_URL,
-            table="events",
+            table="raw.events",
             mode="append",
             properties=jdbc_properties,
         )
